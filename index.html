@@ -1,7 +1,8 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0}</style></head><body>
 <title>Market Activity Monitor</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
@@ -24,6 +25,25 @@
   --bar:#8394b0; --hover:#1f2833; --focus:#6aa6f0; --ok:#3fc592; --bad:#ef7b6e;
   --pc0:#3987e5; --pc1:#d95926; --pc2:#199e70; --pc3:#c98500; --pc4:#d55181; --pc5:#0ca30c; --pc6:#9085e9; --pc7:#e66767;
   --long:#3987e5; --short:#d95926; color-scheme:dark}
+/* Bloomberg skin: black ground, amber labels, white data, terminal mono type */
+:root[data-skin="bloomberg"]{
+  --bg:#000000; --surface:#0a0a0a; --ink:#ffffff; --ink2:#fb8b1e; --ink3:#b0701f; --line:#3b2a0f; --grid:#1a1409;
+  --bar:#fb8b1e; --hover:#1c1306; --focus:#4af6c3; --ok:#4af6c3; --bad:#ff433d;
+  --pc0:#3d8bff; --pc1:#fb8b1e; --pc2:#4af6c3; --pc3:#ffd700; --pc4:#c97cff; --pc5:#7ed321; --pc6:#00d1ff; --pc7:#ff433d;
+  --long:#4af6c3; --short:#ff433d; color-scheme:dark;
+  --font:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace; --head:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+:root[data-skin="bloomberg"] :is(.card,.kpi,.btn,.seg,.seg button,.tablewrap,select,input[type=search],.chip,.status,.pager button,.tip,.bc .t,.bc .t i,.hb .t,.hb .t i,.board .track,.board .track i,.reset){border-radius:2px!important}
+:root[data-skin="bloomberg"] h1{color:#fb8b1e;font-size:20px;text-transform:uppercase;letter-spacing:.06em}
+:root[data-skin="bloomberg"] .card h2{color:#fb8b1e;text-transform:uppercase;letter-spacing:.05em;font-size:13px}
+:root[data-skin="bloomberg"] .seg button[aria-pressed="true"],:root[data-skin="bloomberg"] .btn.primary{background:#fb8b1e;color:#000;border-color:#fb8b1e}
+:root[data-skin="bloomberg"] .btn.primary:hover{background:#ffa84d}
+:root[data-skin="bloomberg"] .tip{background:#fb8b1e;color:#000}
+:root[data-skin="bloomberg"] .kpi .v{color:#fff}
+:root[data-skin="bloomberg"] th{color:#fb8b1e}
+:root[data-skin="bloomberg"] tbody tr:hover{background:#241703}
+:root[data-skin="bloomberg"] .sub,:root[data-skin="bloomberg"] .card .hint{color:#b0701f}
+@media print{.actions,.filters,.toolbar,.pager,.status{display:none!important}body{background:#fff!important;color:#000!important}.tablewrap{overflow:visible}.card,.kpi{break-inside:avoid}}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.45;
@@ -117,13 +137,16 @@ td.barcell{width:26%;min-width:170px;text-align:left}
       <h1>Market Activity Monitor</h1>
       <div class="sub" id="sub"></div>
       <div class="sub foot" id="src"></div>
+      <div class="sub foot" id="persp"></div>
     </div>
     <div class="actions">
       <div class="seg" id="fLang" role="group" aria-label="Language / Bahasa"><button data-l="id" aria-pressed="true">ID</button><button data-l="en" aria-pressed="false">EN</button></div>
+      <div class="fgroup"><label class="lbl" for="selSkin" data-i="theme"></label><select id="selSkin"></select></div>
       <button class="btn primary" id="btnUpload" data-i="upload"></button>
       <button class="btn" id="btnSample" data-i="sample" hidden></button>
       <button class="btn" id="btnXlsx" data-i="exportXlsx" hidden></button>
       <button class="btn" id="btnPdf" data-i="exportPdf" hidden></button>
+      <button class="btn" id="btnPrint" data-i="print" hidden></button>
       <input type="file" id="file" accept=".xls,.xlsx,.csv" hidden>
     </div>
   </header>
@@ -209,7 +232,7 @@ id:{
  rankTitle:'Peringkat lengkap',rankHint:'Pilih kolom data yang jadi dasar peringkat. Klik judul kolom untuk mengurutkan ulang.',
  rankBy:'Berdasarkan',show:'Tampilkan',searchName:'Cari nama / ID',searchTrade:'Cari Trade ID / investor / trader',
  detailTitle:'Detail transaksi unik',detailHint:'Satu baris satu Trade ID, lengkap dengan pihak beli dan jual. Mengikuti semua filter di atas. Arahkan kursor ke Trade ID untuk melihat Order Sysid.',
- footNote:'Satu transaksi punya dua baris (beli dan jual) di file sumber; dashboard menghitungnya sebagai satu transaksi. Filter Broker, Trading Firm, dan Sisi berlaku per sisi: transaksi tampil bila ada sisi yang cocok, dan peringkat peserta hanya menghitung sisi yang cocok. Volume peserta = volume sisi beli + sisi jual. Jam sesuai kolom Trade Time. Data yang diunggah diproses di browser Anda dan tidak disimpan.',
+ footNote:'Satu transaksi punya dua baris (beli dan jual) di file sumber; dashboard menghitungnya sebagai satu transaksi. Tanpa filter Broker atau Trading Firm, angka memakai perspektif bursa (tiap transaksi dihitung sekali). Dengan filter Broker atau Trading Firm, angka memakai perspektif sisi: tiap sisi yang cocok dihitung satu transaksi dan volumenya adalah volume sisi itu, sehingga total di KPI, grafik, peringkat, dan matriks saling cocok. Volume peserta = volume sisi beli + sisi jual. Jam sesuai kolom Trade Time. Data yang diunggah diproses di browser Anda dan tidak disimpan.',
  tradingDay:'Hari perdagangan',tradesFrom:'transaksi',to:'sampai',shownOf:'{a} dari {b} transaksi tampil',source:'Sumber',sampleData:'data bawaan',
  totalTrades:'Total transaksi',uniqueTrade:'trade unik · lihat detail ↓',totalVol:'Total volume',lot:'lot',avgSize:'Rata-rata ukuran',lotPerTrade:'lot per transaksi',
  activeContracts:'Kontrak aktif',ofN:'dari {n} kontrak',activeFirms:'Trading firm aktif',buyOrSell:'beli atau jual',activeTraders:'Trader aktif',uniqueUsers:'User ID unik',peakHour:'Jam tersibuk',
@@ -229,6 +252,8 @@ id:{
  restored:'Kembali ke data bawaan.',exporting:'Menyiapkan file…',saved:'File {f} tersimpan.',cancelled:'Ekspor dibatalkan.',exportFail:'Ekspor gagal atau tidak tersedia di tampilan ini.',
  summary:'Ringkasan',byHour:'Per jam',firmBroker:'Firm x Broker',trade:'Transaksi',filters:'Filter aktif',none:'tidak ada',generated:'Dibuat',
  date:'Tanggal',buyBroker:'Broker beli',buyInv:'Investor beli',buyTrader:'Trader beli',sellBroker:'Broker jual',sellInv:'Investor jual',sellTrader:'Trader jual',buyOrder:'Order beli',sellOrder:'Order jual',
+ theme:'Tema',skinAuto:'Otomatis',skinLight:'Terang',skinDark:'Gelap',print:'Cetak',
+ perspAll:'Perspektif bursa: setiap transaksi dihitung sekali (satu pasangan beli dan jual).',perspScoped:'Perspektif {w}: hanya sisi yang cocok yang dihitung. Setiap sisi (nasabah beli atau jual) dihitung satu transaksi, dan volume adalah volume sisi tersebut.',sideTrade:'transaksi sisi terfilter · lihat detail ↓',detailScoped:' · volume dihitung per sisi terfilter',
  pdfTrunc:'Menampilkan {n} dari {t} transaksi pada PDF. Gunakan ekspor Excel untuk data lengkap.',rank:'Peringkat',name:'Nama',sideAll:'Semua',pdfRanks:'Peringkat teratas',
 },
 en:{
@@ -240,7 +265,7 @@ en:{
  rankTitle:'Full ranking',rankHint:'Choose the data column to rank by. Click a column header to re-sort.',
  rankBy:'Rank by',show:'Show',searchName:'Search name / ID',searchTrade:'Search Trade ID / investor / trader',
  detailTitle:'Unique trade detail',detailHint:'One row per Trade ID, with the buying and selling parties. Follows all filters above. Hover a Trade ID to see the Order Sysids.',
- footNote:'Each trade has two rows (buy and sell) in the source file; the dashboard counts it as one trade. Broker, Trading Firm and Side filters apply per side: a trade shows when any side matches, and participant rankings count only matching sides. Participant volume = buy-side volume + sell-side volume. Hours follow the Trade Time column. Uploaded data is processed in your browser and is not stored.',
+ footNote:'Each trade has two rows (buy and sell) in the source file; the dashboard counts it as one trade. Without a Broker or Trading Firm filter the numbers use the exchange view (each trade counted once). With a Broker or Trading Firm filter they use the side view: each matching side counts as one trade and its volume is the volume of that side, so KPIs, chart, rankings and matrix all agree. Participant volume = buy-side volume + sell-side volume. Hours follow the Trade Time column. Uploaded data is processed in your browser and is not stored.',
  tradingDay:'Trading day',tradesFrom:'trades',to:'to',shownOf:'{a} of {b} trades shown',source:'Source',sampleData:'sample data',
  totalTrades:'Total trades',uniqueTrade:'unique trades · see detail ↓',totalVol:'Total volume',lot:'lots',avgSize:'Average size',lotPerTrade:'lots per trade',
  activeContracts:'Active contracts',ofN:'of {n} contracts',activeFirms:'Active trading firms',buyOrSell:'buying or selling',activeTraders:'Active traders',uniqueUsers:'unique User IDs',peakHour:'Busiest hour',
@@ -260,6 +285,8 @@ en:{
  restored:'Back to the sample data.',exporting:'Preparing file…',saved:'File {f} saved.',cancelled:'Export cancelled.',exportFail:'Export failed or is not available in this view.',
  summary:'Summary',byHour:'By hour',firmBroker:'Firm x Broker',trade:'Trades',filters:'Active filters',none:'none',generated:'Generated',
  date:'Date',buyBroker:'Buy broker',buyInv:'Buy investor',buyTrader:'Buy trader',sellBroker:'Sell broker',sellInv:'Sell investor',sellTrader:'Sell trader',buyOrder:'Buy order',sellOrder:'Sell order',
+ theme:'Theme',skinAuto:'Auto',skinLight:'Light',skinDark:'Dark',print:'Print',
+ perspAll:'Exchange view: each trade is counted once (one buy and sell pair).',perspScoped:'{w} view: only matching sides are counted. Each side (client buy or sell) counts as one trade, and volume is that side\'s volume.',sideTrade:'filtered side trades · see detail ↓',detailScoped:' · volume counted per filtered side',
  pdfTrunc:'Showing {n} of {t} trades in this PDF. Use the Excel export for the full data.',rank:'Rank',name:'Name',sideAll:'All',pdfRanks:'Top rankings',
 }};
 let lang='id';
@@ -271,6 +298,12 @@ const fmtDec=(n,d=2)=>(+n).toLocaleString(LOC(),{minimumFractionDigits:d,maximum
 const fmtP=(n,d=4)=>(+n).toLocaleString(LOC(),{maximumFractionDigits:d});
 const pct=n=>(n*100).toLocaleString(LOC(),{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
 const $=id=>document.getElementById(id);
+let skin='auto';const ORIG_THEME=document.documentElement.getAttribute('data-theme');
+try{const sv=localStorage.getItem('mam-skin');if(['auto','light','dark','bloomberg'].includes(sv))skin=sv}catch(e){}
+function applySkin(){const h=document.documentElement;
+  if(skin==='bloomberg'){h.setAttribute('data-skin','bloomberg');h.setAttribute('data-theme','dark')}
+  else{h.removeAttribute('data-skin');if(skin==='auto'){if(ORIG_THEME)h.setAttribute('data-theme',ORIG_THEME);else h.removeAttribute('data-theme')}else h.setAttribute('data-theme',skin)}}
+applySkin();
 
 /* ---------- state & derived ---------- */
 const KNOWN={NSI:0,NPT:1,NCP:2,'2SO':4},FREE=[3,5,6,7];
@@ -306,13 +339,17 @@ function showTip(e,html){tip.innerHTML=html;tip.style.display='block';const w=ti
 function hideTip(){tip.style.display='none'}
 
 const sideOn=(r,s)=>(!st.firm||r[4+4*s]===st.firm)&&(!st.brk||r[7+4*s]===st.brk)&&(st.side==='ALL'||st.side===(s?'S':'B'));
+/* perspective: no broker/firm filter = exchange view (each trade once); with filter = side view (each matching side counts as one trade) */
+const scoped=()=>!!(st.firm||st.brk);
+const wt=r=>scoped()?(sideOn(r,0)?1:0)+(sideOn(r,1)?1:0):1;
+function perspText(){if(!scoped())return t('perspAll');return t('perspScoped',{w:[st.brk&&('Broker '+st.brk),st.firm&&('Firm '+st.firm)].filter(Boolean).join(' + ')})}
 function filtered(ignoreHour){return ROWS.filter(r=>(st.prod==='ALL'||prodOf(r)===st.prod)&&(!st.ins||r[1]===st.ins)&&(ignoreHour||st.hour==null||hourOf(r)===st.hour)&&(sideOn(r,0)||sideOn(r,1)))}
 
 function aggregate(rows,dim){
   const m=new Map(),d=DIMS.find(x=>x.k===dim);
   const get=k=>{let o=m.get(k);if(!o){o={name:k,trades:0,vol:0,buy:0,sell:0,pv:0,hi:-Infinity,lo:Infinity,last:null,lastTs:-1};m.set(k,o)}return o};
   for(const r of rows){
-    if(d.own){const o=get(r[1]);o.trades++;o.vol+=r[3];o.pv+=r[2]*r[3];o.hi=Math.max(o.hi,r[2]);o.lo=Math.min(o.lo,r[2]);if(r[0]>=o.lastTs){o.lastTs=r[0];o.last=r[2]}}
+    if(d.own){const w=wt(r),o=get(r[1]);o.trades+=w;o.vol+=w*r[3];o.pv+=w*r[2]*r[3];o.hi=Math.max(o.hi,r[2]);o.lo=Math.min(o.lo,r[2]);if(r[0]>=o.lastTs){o.lastTs=r[0];o.last=r[2]}}
     else{
       if(sideOn(r,0)){const b=get(r[d.bs[0]]);b.trades++;b.buy+=r[3];b.vol+=r[3]}
       if(sideOn(r,1)){const s=get(r[d.bs[1]]);s.trades++;s.sell+=r[3];s.vol+=r[3]}
@@ -331,16 +368,16 @@ const CN={trades:'trades',vol:'volume',last:'last',hi:'high',lo:'low',vwap:'vwap
 const PRICEC=['last','hi','lo','vwap'];
 
 function kpiData(rows){
-  const vol=rows.reduce((a,r)=>a+r[3],0);
+  const w=rows.reduce((a,r)=>a+wt(r),0),vol=rows.reduce((a,r)=>a+wt(r)*r[3],0);
   const ins=new Set(rows.map(r=>r[1])),firms=new Set(),trd=new Set();
   rows.forEach(r=>{for(let s=0;s<2;s++)if(sideOn(r,s)){firms.add(r[4+4*s]);trd.add(r[6+4*s])}});
-  const hrs=new Map();rows.forEach(r=>hrs.set(hourOf(r),(hrs.get(hourOf(r))||0)+r[3]));
+  const hrs=new Map();rows.forEach(r=>hrs.set(hourOf(r),(hrs.get(hourOf(r))||0)+wt(r)*r[3]));
   let ph=null,pv=-1;hrs.forEach((v,h)=>{if(v>pv){pv=v;ph=h}});
-  return {vol,ins:ins.size,firms:firms.size,trd:trd.size,ph,pv,trades:rows.length,avg:rows.length?vol/rows.length:0};
+  return {vol,ins:ins.size,firms:firms.size,trd:trd.size,ph,pv,trades:w,avg:w?vol/w:0};
 }
 function hourData(rows){
   const byH=new Map();
-  rows.forEach(r=>{const h=hourOf(r);if(!byH.has(h)){const o={t:0};PRODUCTS.forEach(p=>o[p]=0);byH.set(h,o)}const o=byH.get(h);o[prodOf(r)]+=r[3];o.t+=r[3]});
+  rows.forEach(r=>{const h=hourOf(r);if(!byH.has(h)){const o={t:0};PRODUCTS.forEach(p=>o[p]=0);byH.set(h,o)}const o=byH.get(h),w=wt(r)*r[3];o[prodOf(r)]+=w;o.t+=w});
   return byH;
 }
 function matrixData(rows){
@@ -359,6 +396,7 @@ function applyStatic(){
   document.querySelectorAll('[data-i]').forEach(e=>e.textContent=t(e.dataset.i));
   document.querySelectorAll('[data-ph]').forEach(e=>e.placeholder=t(e.dataset.ph));
   $('optAll').textContent=t('all');
+  $('selSkin').innerHTML=[['auto',t('skinAuto')],['light',t('skinLight')],['dark',t('skinDark')],['bloomberg','Bloomberg']].map(([v,n])=>`<option value="${v}">${n}</option>`).join('');$('selSkin').value=skin;
   $('netLegend').innerHTML=`<span><i style="background:var(--long)"></i>${t('netBuy')}</span><span><i style="background:var(--short)"></i>${t('netSell')}</span>`;
   $('dPrev').textContent=t('prev');$('dNext').textContent=t('next');
   $('fLang').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.l===lang));
@@ -371,6 +409,7 @@ function renderHeader(rows){
   const td=META.tradingDay&&/^\d{8}$/.test(META.tradingDay)?new Date(Date.UTC(+META.tradingDay.slice(0,4),+META.tradingDay.slice(4,6)-1,+META.tradingDay.slice(6,8))).toLocaleDateString(LOC(),{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'}):'';
   $('sub').textContent=`${td?t('tradingDay')+' '+td+' · ':''}${t('tradesFrom')} ${dayShort(a.d)} ${a.txt.slice(0,5)} ${t('to')} ${dayShort(b.d)} ${b.txt.slice(0,5)} · ${t('shownOf',{a:fmt(rows.length),b:fmt(ROWS.length)})}`;
   $('src').textContent=`${t('source')}: ${META.file}${META.sample?' ('+t('sampleData')+')':''}`;
+  $('persp').textContent=perspText();
   $('btnSample').hidden=!!META.sample;
 }
 function renderFilters(){
@@ -387,7 +426,7 @@ function renderFilters(){
 function renderKpis(rows){
   const k=kpiData(rows);
   const items=[
-    [t('totalTrades'),fmt(k.trades),t('uniqueTrade')],
+    [t('totalTrades'),fmt(k.trades),scoped()?t('sideTrade'):t('uniqueTrade')],
     [t('totalVol'),fmt(k.vol),t('lot')],
     [t('avgSize'),fmtDec(k.avg),t('lotPerTrade')],
     [t('activeContracts'),k.ins,t('ofN',{n:ALLINS})],
@@ -440,7 +479,7 @@ function renderHours(){
   $('hourLegend').innerHTML=PRODUCTS.map(p=>`<span><i style="background:${pcol(p)}"></i>${p}</span>`).join('');
 }
 function renderMix(rows){
-  const v={};PRODUCTS.forEach(p=>v[p]=0);rows.forEach(r=>v[prodOf(r)]+=r[3]);
+  const v={};PRODUCTS.forEach(p=>v[p]=0);rows.forEach(r=>v[prodOf(r)]+=wt(r)*r[3]);
   const tt=Object.values(v).reduce((a,b)=>a+b,0),mx=Math.max(1,...Object.values(v));
   $('prodMix').innerHTML=PRODUCTS.map(p=>`<div class="hb"><span>${p}</span><span class="t"><i style="width:${v[p]/mx*100}%;background:${pcol(p)}"></i></span><span class="num"><b>${fmt(v[p])}</b> <span class="dim">${tt?pct(v[p]/tt):pct(0)}</span></span></div>`).join('');
   const top=PRODUCTS.slice().sort((a,b)=>v[b]-v[a])[0];
@@ -502,7 +541,7 @@ function renderDetail(rows){
   const tm=s=>{const c=clock(s);return `<span class="dim">${dayShort(c.d)}</span> ${c.txt}`};
   const cell=(r,s,i)=>{const on=(st.firm||st.brk||st.side!=='ALL')&&sideOn(r,s);return `<td class="tl ${on?(s?'sidesell':'sidebuy'):''}">${r[4+i+4*s]}</td>`};
   $('dtbl').querySelector('tbody').innerHTML=pg.map(r=>`<tr><td class="tl num">${tm(r[0])}</td><td class="tl num" title="${t('buyOrder')} ${r[13]} · ${t('sellOrder')} ${r[14]}">${r[12]}</td><td class="tl">${r[1]}</td><td class="num">${fmtP(r[2])}</td><td class="num"><b>${r[3]}</b></td>${cell(r,0,0)}${cell(r,0,3)}${cell(r,0,1)}${cell(r,0,2)}${cell(r,1,0)}${cell(r,1,3)}${cell(r,1,1)}${cell(r,1,2)}</tr>`).join('')||`<tr><td colspan="13" style="text-align:center;color:var(--ink3);padding:20px">${t('noTrades')}</td></tr>`;
-  $('dCount').textContent=t('tradesLots',{n:fmt(a.length),v:fmt(a.reduce((s,r)=>s+r[3],0))})+(st.dq.trim()?t('matchSearch'):'');
+  $('dCount').textContent=t('tradesLots',{n:fmt(a.length),v:fmt(a.reduce((s,r)=>s+wt(r)*r[3],0))})+(st.dq.trim()?t('matchSearch'):'')+(scoped()?t('detailScoped'):'');
   $('dPage').textContent=t('pageOf',{a:st.page+1,b:pages});
   $('dPrev').disabled=st.page===0;$('dNext').disabled=st.page>=pages-1;
   $('dtbl').querySelectorAll('th[data-s]').forEach(th=>{
@@ -633,7 +672,7 @@ function exportXlsx(){
   const rows=filtered(),k=kpiData(rows),wb=XLSX.utils.book_new();
   const sheet=(aoa,name,widths)=>{const ws=XLSX.utils.aoa_to_sheet(aoa);if(widths)ws['!cols']=widths.map(w=>({wch:w}));XLSX.utils.book_append_sheet(wb,ws,name.slice(0,31))};
   sheet([
-    ['Market Activity Monitor'],[t('source'),META.file],[t('tradingDay'),META.tradingDay||''],[t('filters'),filterSummary()],[],
+    ['Market Activity Monitor'],[t('source'),META.file],[t('tradingDay'),META.tradingDay||''],[t('filters'),filterSummary()],['Perspektif / Perspective',perspText()],[],
     [t('totalTrades'),k.trades],[t('totalVol')+' ('+t('lot')+')',k.vol],[t('avgSize'),Math.round(k.avg*100)/100],[t('activeContracts'),k.ins],[t('activeFirms'),k.firms],[t('activeTraders'),k.trd],[t('peakHour'),k.ph==null?'':hourLabel(k.ph)+' ('+k.pv+' '+t('lot')+')'],
   ],t('summary'),[28,60]);
   for(const d of DIMS){const r=rankSheet(d.k,rows);sheet([r.head,...r.body],t(d.n),[8,26,...r.cols.map(()=>13)])}
@@ -660,7 +699,7 @@ function exportPdf(){
   doc.setFont('helvetica','bold');doc.setFontSize(20);doc.setTextColor(19,26,36);doc.text('Market Activity Monitor',M,y+14);y+=30;
   doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(90,100,115);
   const a=clock(ROWS[0][0]),b=clock(ROWS[ROWS.length-1][0]);
-  [`${t('source')}: ${META.file}${META.sample?' ('+t('sampleData')+')':''}`,`${t('tradesFrom')}: ${dayShort(a.d)} ${a.txt.slice(0,5)} ${t('to')} ${dayShort(b.d)} ${b.txt.slice(0,5)}`,`${t('filters')}: ${filterSummary()}`].forEach(l=>{doc.text(l,M,y);y+=12});
+  [`${t('source')}: ${META.file}${META.sample?' ('+t('sampleData')+')':''}`,`${t('tradesFrom')}: ${dayShort(a.d)} ${a.txt.slice(0,5)} ${t('to')} ${dayShort(b.d)} ${b.txt.slice(0,5)}`,`${t('filters')}: ${filterSummary()}`,perspText()].forEach(l=>{doc.text(l,M,y);y+=12});
   y+=6;
   tbl([t('totalTrades'),t('totalVol')+' ('+t('lot')+')',t('avgSize'),t('activeContracts'),t('activeFirms'),t('activeTraders'),t('peakHour')],
     [[fmt(k.trades),fmt(k.vol),fmtDec(k.avg),k.ins,k.firms,k.trd,k.ph==null?'-':hourLabel(k.ph)+' ('+fmt(k.pv)+')']],{styles:{fontSize:10,cellPadding:5,font:'helvetica'},bodyStyles:{fontStyle:'bold'}});
@@ -676,7 +715,7 @@ function exportPdf(){
   let lx=x0;PRODUCTS.forEach(p=>{doc.setFillColor(...hex(PHEX[PIDX[p]??7]));doc.rect(lx,y+CH+18,8,8,'F');doc.setTextColor(60,70,85);doc.text(p,lx+11,y+CH+25);lx+=48});
   y+=CH+40;
   /* product mix */
-  const v={};PRODUCTS.forEach(p=>v[p]=0);rows.forEach(r=>v[prodOf(r)]+=r[3]);const tt=Object.values(v).reduce((x,z)=>x+z,0);
+  const v={};PRODUCTS.forEach(p=>v[p]=0);rows.forEach(r=>v[prodOf(r)]+=wt(r)*r[3]);const tt=Object.values(v).reduce((x,z)=>x+z,0);
   title(t('mixTitle'));
   tbl([t('product'),t('volume'),t('share')],PRODUCTS.map(p=>[p,fmt(v[p]),tt?pct(v[p]/tt):pct(0)]),{tableWidth:300});
   /* rankings */
@@ -702,12 +741,12 @@ function exportPdf(){
   return {filename:`market-activity_${stamp()}.pdf`,data:doc.output('arraybuffer')};
 }
 async function doExport(kind,btn){
-  if(!DL)return;
   btn.disabled=true;setStatus(t('exporting'));
   try{
     await new Promise(r=>setTimeout(r,30));
     const f=kind==='xlsx'?exportXlsx():exportPdf();
-    await DL.save(f);
+    if(DL)await DL.save(f);
+    else{const url=URL.createObjectURL(new Blob([f.data]));const a=document.createElement('a');a.href=url;a.download=f.filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000)}
     setStatus(t('saved',{f:f.filename}),'ok');
   }catch(e){
     setStatus(e&&e.code==='declined'?t('cancelled'):t('exportFail'),e&&e.code==='declined'?'':'err');
@@ -722,6 +761,8 @@ $('btnSample').onclick=()=>{loadData(SAMPLE_ROWS,{...SAMPLE_META});setStatus(t('
 $('statusX').onclick=()=>setStatus('');
 $('btnXlsx').onclick=()=>doExport('xlsx',$('btnXlsx'));
 $('btnPdf').onclick=()=>doExport('pdf',$('btnPdf'));
+$('btnPrint').onclick=()=>{try{window.print()}catch(e){}};
+$('selSkin').onchange=e=>{skin=e.target.value;try{localStorage.setItem('mam-skin',skin)}catch(x){}applySkin()};
 $('hourClear').onclick=()=>{st.hour=null;render()};
 $('selTop').onchange=e=>{st.top=+e.target.value;renderTable(filtered())};
 $('q').oninput=e=>{st.q=e.target.value;renderTable(filtered())};
@@ -741,7 +782,7 @@ addEventListener('drop',e=>{e.preventDefault();dragN=0;$('app').classList.remove
 derive();applyStatic();initSelects();render();
 if(!window.XLSX){$('btnUpload').disabled=true}
 (async()=>{try{DL=await window.claude?.use?.('downloads')}catch(e){DL=null}
-  if(DL){if(window.XLSX)$('btnXlsx').hidden=false;if(window.jspdf)$('btnPdf').hidden=false}})();
+  if(window.XLSX)$('btnXlsx').hidden=false;if(window.jspdf)$('btnPdf').hidden=false;if(!DL)$('btnPrint').hidden=false})();
 </script>
 
 </body></html>
